@@ -1,107 +1,162 @@
+import controller.EnteController;
 import enums.Prioridade;
 import enums.StatusEnvio;
-import enums.TipoOrgao;
-import repository.AcompanhamentoRepository;
-import repository.EnteRepository;
+import model.*;
 import service.SageService;
 
+import java.util.List;
 import java.util.Scanner;
 
 public class Main {
-
     public static void main(String[] args) {
-        // 1. INICIALIZAÇÃO DO SISTEMA (Manual, sem Spring)
-        // Instanciamos os Repositórios (banco de dados em memória)
-        EnteRepository enteRepo = new EnteRepository();
-        AcompanhamentoRepository acompRepo = new AcompanhamentoRepository();
-
-        // Instanciamos o Service e "injetamos" os repositórios nele
-        SageService service = new SageService(enteRepo, acompRepo);
-
-        // Scanner para ler o que o usuário digita
+        // --- 1. INICIALIZAÇÃO ---
+        EnteController enteController = new EnteController();
+        SageService sageService = new SageService();
         Scanner scanner = new Scanner(System.in);
 
         System.out.println("========================================");
-        System.out.println("      SAGE - SISTEMA DE GESTÃO E-SOCIAL");
+        System.out.println("      SAGE - GESTÃO E-SOCIAL (MYSQL)");
         System.out.println("========================================");
 
-
-        // Aqui simulamos o cadastro prévio dos seus clientes
-        service.cadastrarEnte("201001", "ÁGUA BRANCA", TipoOrgao.PREFEITURA, Prioridade.urgente);
-        service.cadastrarEnte("301001", "ÁGUA BRANCA", TipoOrgao.INSTITUTO_PREVIDENCIA, Prioridade.normal);
-        service.cadastrarEnte("601001", "ÁGUA BRANCA", TipoOrgao.FUNDO_SAUDE, Prioridade.intermediaria);
-
-        service.cadastrarEnte("101012", "ARARA", TipoOrgao.CAMARA_MUNICIPAL, Prioridade.normal);
-        service.cadastrarEnte("201012", "ARARA", TipoOrgao.PREFEITURA, Prioridade.urgente);
-
-        System.out.println("[INIT] Carga completa! Sistema pronto.");
-
-        // 3. MENU INTERATIVO
         int opcao = -1;
+
         while (opcao != 0) {
             System.out.println("\n--- MENU PRINCIPAL ---");
-            System.out.println("1. Gerar Nova Competência (Virada de Mês)");
-            System.out.println("2. Atualizar Status de Envio");
-            System.out.println("3. Exibir Painel de Monitoramento");
+            System.out.println("1. Cadastrar Novo Órgão (Ente)");
+            System.out.println("2. Gerar Competência (Virada de Mês)");
+            System.out.println("3. Atualizar Status de Envio");
+            System.out.println("4. Exibir Painel de Monitoramento (Por Mês)");
+            System.out.println("5. Listar Órgãos Cadastrados (Relatório)");
             System.out.println("0. Sair");
-            System.out.print("Digite a opção desejada: ");
+            System.out.print("Escolha uma opção: ");
 
-            // Tratamento simples para evitar erro se digitar letra
             if (scanner.hasNextInt()) {
                 opcao = scanner.nextInt();
-                scanner.nextLine(); // Limpar o buffer do teclado
+                scanner.nextLine(); // Limpar buffer
             } else {
-                scanner.next(); // Descarta entrada inválida
-                opcao = -1;
+                scanner.next();
+                continue;
             }
 
-            switch (opcao) {
-                case 1:
-                    System.out.print("Informe o Mês/Ano (ex: 10/2025): ");
-                    String mes = scanner.nextLine();
-                    service.gerarCompetencia(mes);
+            try {
+                switch (opcao) {
+                    case 1: // CADASTRO
+                        System.out.println("\n--- 1. NOVO CADASTRO ---");
+                        System.out.print("Código (ex: 201001): "); String codigo = scanner.nextLine();
+                        System.out.print("Nome (ex: PREFEITURA X): "); String nome = scanner.nextLine();
 
-                    break;
+                        System.out.println("Selecione o Tipo:");
+                        System.out.println("1- Prefeitura | 2- Camara | 3- Fundo Municipal | 4- Instituto");
+                        int tipoOp = scanner.nextInt();
 
-                case 2:
-                    System.out.println("\n--- ATUALIZAÇÃO DE STATUS ---");
-                    System.out.print("Mês Referência (ex: 10/2025): ");
-                    String mesRef = scanner.nextLine();
+                        System.out.println("Selecione a Prioridade:");
+                        System.out.println("1- Normal | 2- Intermediaria | 3- Urgente");
+                        int prioOp = scanner.nextInt(); scanner.nextLine();
 
-                    System.out.print("Nome do Ente (ex: ARARA): ");
-                    String nomeEnte = scanner.nextLine();
+                        Prioridade prioridade = Prioridade.normal;
+                        if (prioOp == 2) prioridade = Prioridade.intermediaria;
+                        if (prioOp == 3) prioridade = Prioridade.urgente;
 
-                    System.out.println("Escolha o novo Status:");
-                    System.out.println("1- PENDENTE_DADOS | 2- PENDENTE_ENVIO | 3- CONCLUIDO | 4- ERRO");
-                    int statusOp = scanner.nextInt();
-                    scanner.nextLine(); // Limpar buffer
+                        Ente novoEnte = null;
+                        switch (tipoOp) {
+                            case 1: novoEnte = new Prefeitura(codigo, nome, prioridade); break;
+                            case 2: novoEnte = new Camara(codigo, nome, prioridade); break;
+                            case 3: novoEnte = new FundoMunicipal(codigo, nome, prioridade); break;
+                            case 4: novoEnte = new Instituto(codigo, nome, prioridade); break;
+                            default: System.out.println("[!] Tipo inválido."); continue;
+                        }
 
-                    StatusEnvio novoStatus = StatusEnvio.nao_iniciado;
-                    if (statusOp == 1) novoStatus = StatusEnvio.pendente_dados;
-                    else if (statusOp == 2) novoStatus = StatusEnvio.pendente_correcao;
-                    else if (statusOp == 3) novoStatus = StatusEnvio.concluido;
-                    else if (statusOp == 4) novoStatus = StatusEnvio.erro_impeditivo;
+                        enteController.cadastrar(novoEnte);
+                        break;
 
-                    System.out.print("Observação (Opcional, ENTER para pular): ");
-                    String obs = scanner.nextLine();
+                    case 2: // GERAR MÊS
+                        System.out.println("\n--- 2. GERAR COMPETÊNCIA ---");
+                        System.out.print("Informe o Mês/Ano (ex: 11/2025): ");
+                        String mes = scanner.nextLine();
+                        sageService.gerarCompetencia(mes);
+                        break;
 
-                    service.atualizarStatus(mesRef, nomeEnte, novoStatus, obs);
-                    break;
+                    case 3: // ATUALIZAR STATUS
+                        System.out.println("\n--- 3. ATUALIZAR STATUS ---");
+                        System.out.print("Mês Referência (ex: 11/2025): "); String mesRef = scanner.nextLine();
 
-                case 3:
-                    System.out.print("Qual mês deseja visualizar? (ex: 10/2025): ");
-                    String mesPainel = scanner.nextLine();
-                    service.exibirPainel(mesPainel);
-                    break;
+                        // Dica visual para o usuário
+                        System.out.print("Código do Ente (Use a Opção 5 para consultar): "); String codEnte = scanner.nextLine();
 
-                case 0:
-                    System.out.println("Encerrando sistema SAGE. Até logo!");
-                    break;
+                        System.out.println("Novo Status:");
+                        System.out.println("1- Pendente Dados | 2- Pendente Correção | 3- Concluído | 4- Erro");
+                        int stOp = scanner.nextInt(); scanner.nextLine();
 
-                default:
-                    System.out.println("Opção inválida!");
+                        StatusEnvio novoStatus = StatusEnvio.nao_iniciado;
+                        if (stOp == 1) novoStatus = StatusEnvio.pendente_dados;
+                        if (stOp == 2) novoStatus = StatusEnvio.pendente_correcao;
+                        if (stOp == 3) novoStatus = StatusEnvio.concluido;
+                        if (stOp == 4) novoStatus = StatusEnvio.erro_impeditivo;
+
+                        System.out.print("Observação (Opcional): "); String obs = scanner.nextLine();
+                        sageService.atualizarStatus(mesRef, codEnte, novoStatus, obs);
+                        break;
+
+                    case 4: // PAINEL MENSAL
+                        System.out.print("\nQual mês deseja visualizar? (ex: 11/2025): ");
+                        String mesPainel = scanner.nextLine();
+                        sageService.exibirPainel(mesPainel);
+                        break;
+
+                    case 5: // LISTAR GERAL (Relatório Rico)
+                        List<Ente> lista = enteController.listar();
+                        System.out.println("\n===================================================================================================");
+                        System.out.println("                                      RELATÓRIO DE ENTIDADES");
+                        System.out.println("===================================================================================================");
+
+                        if (lista.isEmpty()) {
+                            System.out.println("Nenhum órgão cadastrado no banco.");
+                        } else {
+                            // Cabeçalho da Tabela
+                            System.out.printf("| %-8s | %-25s | %-35s | %-12s |%n",
+                                    "CÓDIGO", "NOME (TIPO)", "SETOR RESPONSÁVEL", "COMPLEXIDADE");
+                            System.out.println("---------------------------------------------------------------------------------------------------");
+
+                            for (Ente e : lista) {
+                                String tipo = e.getClass().getSimpleName();
+                                String nomeCompleto = e.getNome() + " (" + tipo + ")";
+
+                                // Polimorfismo em ação:
+                                String complexidade = e.isAltaComplexidade() ? "ALTA" : "BAIXA";
+                                String setor = e.getSetorResponsavel();
+
+                                System.out.printf("| %-8s | %-25s | %-35s | %-12s |%n",
+                                        e.getCodigo(),
+                                        limitString(nomeCompleto, 25),
+                                        limitString(setor, 35),
+                                        complexidade);
+                            }
+                        }
+                        System.out.println("===================================================================================================\n");
+                        break;
+
+                    case 0:
+                        System.out.println("Encerrando sistema... Até logo!");
+                        break;
+
+                    default:
+                        System.out.println("Opção inválida!");
+                }
+            } catch (Exception e) {
+                System.out.println("[ERRO CRÍTICO] " + e.getMessage());
+                e.printStackTrace();
             }
         }
         scanner.close();
     }
+
+    // --- MÉTODOS AUXILIARES ---
+
+
+    private static String limitString(String text, int max) {
+        if (text == null) return "";
+        if (text.length() <= max) return text;
+        return text.substring(0, max - 3) + "...";
+    }
+
 }
